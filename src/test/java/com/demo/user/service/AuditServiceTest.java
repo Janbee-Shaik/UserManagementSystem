@@ -5,6 +5,8 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.sql.Timestamp;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -35,8 +37,9 @@ public class AuditServiceTest {
 	
 	@Test
 	public void testCreate() {
-		Audit audit = new Audit(1L, "create","16-06-2020","17-06-2020");
+		Timestamp timestamp = new Timestamp(System.currentTimeMillis());
+		Audit audit = new Audit(1L, "POST",timestamp,timestamp ,2L);
 		when(auditRepository.save(audit)).thenReturn(audit);
-		assertEquals("create", audit.getActionPerformed());
+		assertEquals("POST", audit.getActionPerformed());
 	}
 }

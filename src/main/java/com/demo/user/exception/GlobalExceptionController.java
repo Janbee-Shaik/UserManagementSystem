@@ -33,4 +33,13 @@ public class GlobalExceptionController {
 	public ResponseEntity<String> handleUserNotFoundException() {
 		return new ResponseEntity<>(Constants.USER_NOT_FOUND,HttpStatus.OK);
 	}
+	
+	/**
+	 * Handles UserIsNotAllowedException
+	 * @return String
+	 */
+	@ExceptionHandler(value = UserIsNotAllowedException.class)
+	public ResponseEntity<String> handleUserIsNotAllowedException() {
+		return new ResponseEntity<>(Constants.USER_NOT_ALLOWED,HttpStatus.OK);
+	}
 }

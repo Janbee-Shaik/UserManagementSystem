@@ -1,5 +1,6 @@
 package com.demo.user.controller;
 
+import java.sql.Timestamp;
 import java.util.List;
 import java.util.Objects;
 
@@ -22,8 +23,10 @@ import com.demo.user.dto.UserReqDto;
 import com.demo.user.entity.Audit;
 import com.demo.user.entity.User;
 import com.demo.user.exception.UserExistsException;
+import com.demo.user.exception.UserIsNotAllowedException;
 import com.demo.user.exception.UserNotFoundException;
 import com.demo.user.service.UserService;
+import com.demo.user.util.Constants;
 
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
@@ -50,18 +53,26 @@ public class UserController {
 	 * @param endDate
 	 * @return User object
 	 * @throws UserExistsException
+	 * @throws UserIsNotAllowedException 
 	 */
 	@ApiOperation("Create a user")
 	@PostMapping("/")
-	public ResponseEntity<User> create(@RequestBody UserReqDto userReqDto,@RequestParam String
-			startDate, @RequestParam String endDate) throws UserExistsException {
+	public ResponseEntity<User> create(@RequestBody UserReqDto userReqDto, @RequestParam Long adminUserId) throws UserExistsException, UserIsNotAllowedException {
+		Timestamp startDate = new Timestamp(System.currentTimeMillis());
+		User user = null;
 		LOGGER.debug("UserController :: create() :: start "+userReqDto);
-		User user;
-		try {
-			user = userService.create(userReqDto,startDate,endDate);
-		}catch(UserExistsException e) {
-			LOGGER.debug("UserController :: create() :: UserExistsException ");
-			throw new UserExistsException();
+		String role = userService.getUserRole(adminUserId);
+		if(role == null) {
+			user = userService.create(userReqDto,startDate,adminUserId,role);
+		} else if(role.equals(Constants.ADMIN)) {
+			try {
+				user = userService.create(userReqDto,startDate,adminUserId,role);
+			}catch(UserExistsException e) {
+				LOGGER.debug("UserController :: create() :: UserExistsException ");
+				throw new UserExistsException();
+			}
+		} else {
+			throw new UserIsNotAllowedException();
 		}
 		LOGGER.debug("UserController :: create() :: end ");
 		return new ResponseEntity<>(user,HttpStatus.CREATED);
@@ -72,13 +83,20 @@ public class UserController {
 	 * @param startDate
 	 * @param endDate
 	 * @return list of users
+	 * @throws UserIsNotAllowedException 
 	 */
 	@ApiOperation("Get all users")
 	@GetMapping("/")
-	public ResponseEntity<List<User>> getAll(@RequestParam String
-			startDate, @RequestParam String endDate) {
+	public ResponseEntity<List<User>> getAll(@RequestParam Long adminUserId) throws UserIsNotAllowedException {
+		Timestamp startDate = new Timestamp(System.currentTimeMillis());
 		LOGGER.debug("UserController :: getAll() :: start ");
-		List<User> userList = userService.getAll(startDate,endDate);
+		List<User> userList = null;
+		String role = userService.getUserRole(adminUserId);
+		if(role.equals(Constants.ADMIN)) {
+			userList = userService.getAll(startDate,adminUserId);
+		} else {
+			throw new UserIsNotAllowedException();
+		}
 		LOGGER.debug("UserController :: getAll() :: end ");
 		return new ResponseEntity<>(userList,HttpStatus.OK);
 	}
@@ -90,13 +108,20 @@ public class UserController {
 	 * @param endDate
 	 * @return User object
 	 * @throws UserNotFoundException
+	 * @throws UserIsNotAllowedException 
 	 */
 	@ApiOperation("Get a user")
 	@GetMapping("/{userId}")
-	public ResponseEntity<User> getById(@PathVariable Long userId,@RequestParam String
-			startDate, @RequestParam String endDate) throws UserNotFoundException {
+	public ResponseEntity<User> getById(@PathVariable Long userId, @RequestParam Long adminUserId) throws UserNotFoundException, UserIsNotAllowedException {
+		Timestamp startDate = new Timestamp(System.currentTimeMillis());
 		LOGGER.debug("UserController :: getById() :: start "+userId);
-		User user = userService.getById(userId,startDate,endDate);
+		User user;
+		String role = userService.getUserRole(adminUserId);
+		if(role.equals(Constants.ADMIN)) {
+			user = userService.getById(userId,startDate,adminUserId);
+		} else {
+			throw new UserIsNotAllowedException();
+		}
 		if(Objects.isNull(user)) {
 			throw new UserNotFoundException();
 		}
@@ -112,18 +137,24 @@ public class UserController {
 	 * @param endDate
 	 * @return String
 	 * @throws UserNotFoundException
+	 * @throws UserIsNotAllowedException 
 	 */
 	@ApiOperation("Update a user")
-	@PutMapping("/userId")
-	public ResponseEntity<String> update(@PathVariable Long userId,@RequestBody User user,@RequestParam String
-			startDate, @RequestParam String endDate) throws UserNotFoundException {
+	@PutMapping("/{userId}")
+	public ResponseEntity<String> update(@PathVariable Long userId,@RequestBody User user, @RequestParam Long adminUserId) throws UserNotFoundException, UserIsNotAllowedException {
+		Timestamp startDate = new Timestamp(System.currentTimeMillis());
 		LOGGER.debug("UserController :: update() :: start ");
 		String msg;
-		try {
-			msg = userService.update(userId, user,startDate,endDate);
-		} catch(UserNotFoundException e) {
-			LOGGER.error("UserController :: update() :: UserNotFoundException ");
-			throw new UserNotFoundException();
+		String role = userService.getUserRole(adminUserId);
+		if(role.equals(Constants.ADMIN)) {
+			try {
+				msg = userService.update(userId, user,startDate,adminUserId);
+			} catch(UserNotFoundException e) {
+				LOGGER.error("UserController :: update() :: UserNotFoundException ");
+				throw new UserNotFoundException();
+			}
+		} else {
+			throw new UserIsNotAllowedException();
 		}
 		LOGGER.debug("UserController :: update() :: end ");
 		return new ResponseEntity<>(msg,HttpStatus.OK);
@@ -136,13 +167,20 @@ public class UserController {
 	 * @param endDate
 	 * @return String
 	 * @throws UserNotFoundException
+	 * @throws UserIsNotAllowedException 
 	 */
 	@ApiOperation("Delete a user")
-	@DeleteMapping("/userId")
-	public ResponseEntity<String> delete(@PathVariable Long userId,@RequestParam String
-			startDate, @RequestParam String endDate) throws UserNotFoundException {
+	@DeleteMapping("/{userId}")
+	public ResponseEntity<String> delete(@PathVariable Long userId,@RequestParam Long adminUserId) throws UserNotFoundException, UserIsNotAllowedException {
+		Timestamp startDate = new Timestamp(System.currentTimeMillis());
 		LOGGER.debug("UserController :: delete() :: start ");
-		String msg = userService.delete(userId,startDate,endDate);
+		String msg =null;
+		String role = userService.getUserRole(adminUserId);
+		if(role.equals(Constants.ADMIN)) {
+			msg = userService.delete(userId,startDate,adminUserId);
+		} else {
+			throw new UserIsNotAllowedException();
+		}
 		LOGGER.debug("UserController :: delete() :: end ");
 		return new ResponseEntity<>(msg,HttpStatus.OK);
 	}
@@ -151,12 +189,19 @@ public class UserController {
 	 * 
 	 * @param actionPerformed
 	 * @return Audit Object
+	 * @throws UserIsNotAllowedException 
 	 */
-	@ApiOperation("searching based on admin action performed")
+	@ApiOperation("Search based on admin action performed")
 	@GetMapping("/search")
-	public ResponseEntity<List<Audit>> search(@RequestParam String actionPerformed) {
+	public ResponseEntity<List<Audit>> search(@RequestParam String actionPerformed,@RequestParam Long adminUserId) throws UserIsNotAllowedException {
 		LOGGER.debug("UserController :: search() :: start ");
-		List<Audit> auditList = userService.search(actionPerformed);
+		List<Audit> auditList = null;
+		String role = userService.getUserRole(adminUserId);
+		if(role.equals(Constants.ADMIN)) {
+			auditList = userService.search(actionPerformed);
+		} else {
+			throw new UserIsNotAllowedException();
+		}
 		LOGGER.debug("UserController :: search() :: end ");
 		return new ResponseEntity<>(auditList,HttpStatus.OK);
 	}

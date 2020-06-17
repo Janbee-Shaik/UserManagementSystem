@@ -1,5 +1,6 @@
 package com.demo.user.service;
 
+import java.sql.Timestamp;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -44,7 +45,7 @@ public class UserService {
 	 * @return User object
 	 * @throws UserExistsException
 	 */
-	public User create(UserReqDto userReqDto,String startDate, String endDate) throws UserExistsException {
+	public User create(UserReqDto userReqDto,Timestamp startDate,Long adminUserId,String role) throws UserExistsException {
 		LOGGER.info("UserService :: create() :: start");
 		User user = userRepository.findByMailId(userReqDto.getMailId());
 		if(!Objects.isNull(user)) {
@@ -52,11 +53,13 @@ public class UserService {
 		}
 		User userObj = new User();
 		userObj.setMailId(userReqDto.getMailId());
-		userObj.setMobNum(userReqDto.getMobNum());
 		userObj.setName(userReqDto.getName());
 		userObj.setRole(userReqDto.getRole());
 		User newUser = userRepository.save(userObj);
-		requestToAuditService("create", startDate,endDate);
+		Timestamp endDate = new Timestamp(System.currentTimeMillis());
+		if(role != null) {
+			requestToAuditService("POST", startDate,endDate, adminUserId);
+		}
 		LOGGER.info("UserService :: create() :: end");
 		return newUser;
 	}
@@ -67,9 +70,10 @@ public class UserService {
 	 * @param endDate
 	 * @return list of users
 	 */
-	public List<User> getAll(String startDate, String endDate) {
+	public List<User> getAll(Timestamp startDate,Long adminUserId) {
 		List<User> userList =  userRepository.findAll();
-		requestToAuditService("getAll", startDate, endDate);
+		Timestamp endDate = new Timestamp(System.currentTimeMillis());
+		requestToAuditService("GET", startDate, endDate,adminUserId);
 		return userList;
 	}
 
@@ -80,10 +84,11 @@ public class UserService {
 	 * @param endDate
 	 * @return User object
 	 */
-	public User getById(Long userId,String startDate, String endDate) {
+	public User getById(Long userId,Timestamp startDate, Long adminUserId) {
 		LOGGER.info("UserService :: getById() :: start");
 		Optional<User> user = userRepository.findById(userId);
-		requestToAuditService("getById", startDate, endDate);
+		Timestamp endDate = new Timestamp(System.currentTimeMillis());
+		requestToAuditService("GET", startDate, endDate,adminUserId);
 		if(user.isPresent()) {
 			return user.get();
 		}
@@ -100,14 +105,15 @@ public class UserService {
 	 * @return String
 	 * @throws UserNotFoundException
 	 */
-	public String update(Long userId,User user,String startDate, String endDate) throws UserNotFoundException {
+	public String update(Long userId,User user,Timestamp startDate, Long adminUserId) throws UserNotFoundException {
 		LOGGER.info("UserService :: update() :: start");
 		Optional<User> user1 = userRepository.findById(userId);
 		if(user1.isPresent() && Objects.isNull(user1.get())) {
 			throw new UserNotFoundException();
 		}
 		userRepository.save(user);
-		requestToAuditService("update", startDate, endDate);
+		Timestamp endDate = new Timestamp(System.currentTimeMillis());
+		requestToAuditService("PUT", startDate, endDate,adminUserId);
 		LOGGER.info("UserService :: update() :: end");
 		return Constants.USER_UPDATED;
 	}
@@ -120,14 +126,15 @@ public class UserService {
 	 * @return String
 	 * @throws UserNotFoundException
 	 */
-	public String delete(Long userId,String startDate, String endDate) throws UserNotFoundException {
+	public String delete(Long userId,Timestamp startDate,Long adminUserId) throws UserNotFoundException {
 		LOGGER.info("UserService :: delete() :: start");
 		Optional<User> user = userRepository.findById(userId);
 		if(user.isPresent() && Objects.isNull(user.get())) {
 			throw new UserNotFoundException();
 		}
 		userRepository.deleteById(userId);
-		requestToAuditService("delete", startDate, endDate);
+		Timestamp endDate = new Timestamp(System.currentTimeMillis());
+		requestToAuditService("DELETE", startDate, endDate,adminUserId);
 		LOGGER.info("UserService :: delete() :: end");
 		return Constants.USER_DELETED;
 	}
@@ -142,8 +149,16 @@ public class UserService {
 		return auditRepository.findByActionPerformed(actionPerformed);
 	}
 
-	
-	private void requestToAuditService(String actionPerformed, String startDate, String endDate) {
-		auditService.create(actionPerformed, startDate, endDate);
+
+	public String getUserRole(Long userId) {
+		Optional<User> user = userRepository.findById(userId);
+		if(user.isPresent()) {
+			return user.get().getRole();
+		}
+		return null;
+	}
+
+	private void requestToAuditService(String actionPerformed, Timestamp startDate, Timestamp endDate,Long userId) {
+		auditService.create(actionPerformed, startDate, endDate,userId);
 	}
 }
